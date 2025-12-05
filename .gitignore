@@ -1,0 +1,4 @@
+node_modules
+.env
+rintrack-firebase-adminsdk.json
+.vercel
