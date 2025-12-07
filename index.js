@@ -66,6 +66,15 @@ async function run() {
 
 
 
+      //loan applications get from DB by user
+    app.get("/my-loans/:email", async (req, res) => {
+      const result = await applicationsCollection
+        .find({ userEmail: req.params.email })
+        .toArray();
+      res.send(result);
+    });
+
+
     // save or update a user in db
     app.post("/user", async (req, res) => {
       const userData = req.body;
