@@ -30,6 +30,7 @@ async function run() {
     const db = client.db("RinTrack");
     const usersCollection = db.collection("users");
     const loansCollection = db.collection("loans");
+    const applicationsCollection = db.collection("applications");
 
     //  get loans for home page
     app.get("/loans-home", async (req, res) => {
@@ -44,13 +45,26 @@ async function run() {
     });
 
     // get loan details
-    app.get("/loan-details/:id", async (req, res) => {
+    app.get("/loans/:id", async (req, res) => {
       console.log(req.params.id);
       const result = await loansCollection.findOne({
         _id: new ObjectId(req.params.id),
       });
       res.send(result);
     });
+
+
+
+
+
+    //loan applications save in DB
+    app.post("/loans/application", async (req, res) => {
+      const data = req.body;
+      const result = await applicationsCollection.insertOne(data);
+      res.send({ result, success: true });
+    });
+
+
 
     // save or update a user in db
     app.post("/user", async (req, res) => {
