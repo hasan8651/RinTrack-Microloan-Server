@@ -32,6 +32,16 @@ async function run() {
     const loansCollection = db.collection("loans");
     const applicationsCollection = db.collection("applications");
 
+
+
+
+        //  add loan by manager
+    app.post("/loans", async (req, res) => {
+      const loan = req.body;
+      const result = await loansCollection.insertOne(loan);
+      res.send(result);
+    });
+
     //  get loans for home page
     app.get("/loans-home", async (req, res) => {
       const result = await loansCollection.find().toArray();
