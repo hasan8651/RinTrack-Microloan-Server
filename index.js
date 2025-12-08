@@ -100,6 +100,13 @@ async function run() {
       res.send(result);
     });
 
+// get approved loan applications
+    app.get("/approved-loans", async (req, res) => {
+      const result = await applicationsCollection
+        .find({ status: "Approved" })
+        .toArray();
+      res.send(result);
+    });
 
       //loan applications get from DB by user
     app.get("/my-loans/:email", async (req, res) => {
