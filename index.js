@@ -190,6 +190,98 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
+
+
+
+
+
+
+    // payment checkout
+    app.post("/create-checkout-session", async (req, res) => {
+      const paymentInfo = req.body;
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: paymentInfo.loanTitle,
+                description: `$${paymentInfo.amount}`,
+                images: [paymentInfo.image],
+              },
+              unit_amount: paymentInfo.amount * 100,
+            },
+            quantity: paymentInfo.quantity,
+          },
+        ],
+        customer_email: paymentInfo.borrower?.email,
+        mode: "payment",
+        metadata: {
+          loanApplicationId: paymentInfo.loanApplicationId,
+          borrower: paymentInfo.borrower?.email,
+        },
+        success_url: `http://localhost:5173/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `http://localhost:5173/loans`,
+      });
+      res.send({ url: session.url });
+    });
+
+    app.get("/payment-success", async (req, res) => {
+      const { session_id } = req.query;
+      try {
+        // Retrieve the session from Stripe
+        const session = await stripe.checkout.sessions.retrieve(session_id);
+        // Check if payment succeeded
+        if (session.payment_status === "paid") {
+          const loanApplicationId = session.metadata.loanApplicationId;
+          if (!loanApplicationId) {
+            return res.status(400).json({
+              success: false,
+              message: "No loanApplicationId in session metadata",
+            });
+          }
+
+          // Update the loan application fee status in the database
+          const result = await applicationsCollection.updateOne(
+            { _id: new ObjectId(loanApplicationId) },
+            {
+              $set: {
+                applicationFeeStatus: "Paid",
+                stripePaymentId: session.payment_intent,
+                paymentEmail: session.customer_email,
+                paymentAmount: session.amount_total / 100,
+                paidAt: new Date(),
+              },
+            }
+          );
+
+          return res.status(200).json({
+            success: true,
+            message: "Payment successful",
+            loanApplicationId,
+            stripePaymentId: session.payment_intent,
+          });
+        } else {
+          return res
+            .status(400)
+            .json({ success: false, message: "Payment not completed" });
+        }
+      } catch (error) {
+        console.error("Payment error:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Server error",
+          error: error.message,
+        });
+      }
+    });
+
+
+
+
+
+
+
   } finally {
   }
 }
