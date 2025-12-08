@@ -75,7 +75,12 @@ async function run() {
        res.send(result);      
     });
 
-
+  // delete loan
+    app.delete("/loans/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await loansCollection.deleteOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
 
     //loan applications save in DB
     app.post("/loans/application", async (req, res) => {
