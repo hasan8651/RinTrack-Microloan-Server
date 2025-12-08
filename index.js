@@ -6,7 +6,15 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // middleware
-app.use(cors());
+app.use(cors({
+    origin: [
+      // `${process.env.SITE_DOMAIN}`,
+      "http://localhost:5173",
+     
+    ],
+    credentials: true,
+    optionSuccessStatus: 200,
+  }));
 app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.vbonu5x.mongodb.net/?appName=Cluster0`;
@@ -91,7 +99,6 @@ async function run() {
 
 
 
-
 // get pending loan applications
     app.get("/pending-loans", async (req, res) => {
       const result = await applicationsCollection
@@ -106,6 +113,21 @@ async function run() {
         .find({ status: "Approved" })
         .toArray();
       res.send(result);
+    });
+
+
+// Update Status of loan application by manager
+    app.patch("/update-status/:id", async (req, res) => {
+      const id = req.params.id;
+      const { status } = req.body;
+      const updateData = { status };
+      if (status === "Approved") {
+        updateData.approvedAt = new Date();
+      }
+      const result = await applicationsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updateData }
+      );
     });
 
       //loan applications get from DB by user
