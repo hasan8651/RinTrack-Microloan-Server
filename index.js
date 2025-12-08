@@ -91,6 +91,16 @@ async function run() {
 
 
 
+
+// get pending loan applications
+    app.get("/pending-loans", async (req, res) => {
+      const result = await applicationsCollection
+        .find({ status: "Pending" })
+        .toArray();
+      res.send(result);
+    });
+
+
       //loan applications get from DB by user
     app.get("/my-loans/:email", async (req, res) => {
       const result = await applicationsCollection
