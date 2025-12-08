@@ -63,7 +63,17 @@ async function run() {
       res.send(result);
     });
 
-
+    // update loan data
+    app.patch("/loans/:id", async (req, res) => {
+      const id = req.params.id;
+      const updatedData = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: updatedData,
+      };
+      const result = await loansCollection.updateOne(query, updateDoc);
+       res.send(result);      
+    });
 
 
 
