@@ -128,6 +128,7 @@ async function run() {
         { _id: new ObjectId(id) },
         { $set: updateData }
       );
+       res.send(result);
     });
 
       //loan applications get from DB by user
@@ -135,6 +136,16 @@ async function run() {
       const result = await applicationsCollection
         .find({ userEmail: req.params.email })
         .toArray();
+      res.send(result);
+    });
+
+
+      //loan application delete from DB by user
+    app.delete("/loan-application/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await applicationsCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
       res.send(result);
     });
 
