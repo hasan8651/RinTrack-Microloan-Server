@@ -4,14 +4,13 @@ const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const port = process.env.PORT || 5000;
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
 
 // middleware
 app.use(cors({
     origin: [
-      // `${process.env.SITE_DOMAIN}`,
-      "http://localhost:5173",
-     
-    ],
+      `${process.env.SITE_DOMAIN}`,
+     ],
     credentials: true,
     optionSuccessStatus: 200,
   }));
@@ -155,7 +154,7 @@ async function run() {
       const userData = req.body;
       userData.created_at = new Date().toISOString();
       userData.last_loggedIn = new Date().toISOString();
-      userData.role = userData.role || "customer";
+      userData.role = userData.role || "borrower";
       userData.status = "active";
       const query = {
         email: userData.email,
@@ -220,8 +219,8 @@ async function run() {
           loanApplicationId: paymentInfo.loanApplicationId,
           borrower: paymentInfo.borrower?.email,
         },
-        success_url: `http://localhost:5173/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `http://localhost:5173/loans`,
+        success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.SITE_DOMAIN}/loans`,
       });
       res.send({ url: session.url });
     });
