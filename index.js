@@ -249,6 +249,29 @@ async function run() {
       res.send(result);
     });
 
+
+
+      // Suspend User by ADMIN
+    app.patch("/users/suspend/:id", async (req, res) => {
+      const id = req.params.id;
+      const { reason, feedback } = req.body;
+      const result = await usersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            status: "suspended",
+            suspendReason: reason,
+            suspendFeedback: feedback,
+            suspendedAt: new Date(),
+          },
+        }
+      );
+      res.send({
+        success: true,
+        result,
+      });
+    });
+
     // payment checkout
     app.post("/create-checkout-session", async (req, res) => {
       const paymentInfo = req.body;
