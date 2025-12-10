@@ -5,19 +5,28 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const port = process.env.PORT || 5000;
 const stripe = require("stripe")(process.env.STRIPE_SECRET);
+const admin = require("firebase-admin");
+
+const decoded = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString(
+  "utf-8"
+);
+const serviceAccount = JSON.parse(decoded);
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
 
 // middleware
-app.use(cors({
-    origin: [
-      `${process.env.SITE_DOMAIN}`,
-     ],
+app.use(
+  cors({
+    origin: [`${process.env.SITE_DOMAIN}`],
     credentials: true,
     optionSuccessStatus: 200,
-  }));
+  })
+);
 app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.vbonu5x.mongodb.net/?appName=Cluster0`;
-
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -25,6 +34,26 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
+
+// jwt middlewares
+const verifyJWT = async (req, res, next) => {
+  const token = req?.headers?.authorization?.split(" ")[1];
+  console.log(token);
+  if (!token) return res.status(401).send({ message: "Unauthorized Access!" });
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.tokenEmail = decoded.email;
+    console.log(decoded);
+    next();
+  } catch (err) {
+    console.log(err);
+    return res.status(401).send({ message: "Unauthorized Access!", err });
+  }
+};
+
+
+
 
 async function run() {
   try {
@@ -40,9 +69,40 @@ async function run() {
     const applicationsCollection = db.collection("applications");
 
 
+    // verifyADMIN
+    const verifyADMIN = async (req, res, next) => {
+      const email = req.tokenEmail;
+      const user = await usersCollection.findOne({ email });
+      if (user?.role !== "admin")
+        return res
+          .status(403)
+          .send({ message: "Admin only Actions!", role: user?.role });
+      next();
+    };
 
+    // verifyBorrower
+    const verifyBorrower = async (req, res, next) => {
+      const email = req.tokenEmail;
+      const user = await usersCollection.findOne({ email });
+      if (user?.role !== "borrower")
+        return res
+          .status(403)
+          .send({ message: "Borrower only Actions!", role: user?.role });
+      next();
+    };
 
-        //  add loan by manager
+    // verifyManager
+    const verifyManager = async (req, res, next) => {
+      const email = req.tokenEmail;
+      const user = await usersCollection.findOne({ email });
+      if (user?.role !== "manager")
+        return res
+          .status(403)
+          .send({ message: "Manager only Actions!", role: user?.role });
+      next();
+    };
+
+    //  add loan by manager
     app.post("/loans", async (req, res) => {
       const loan = req.body;
       const result = await loansCollection.insertOne(loan);
@@ -51,7 +111,11 @@ async function run() {
 
     //  get loans for home page
     app.get("/loans-home", async (req, res) => {
-      const result = await loansCollection.find().toArray();
+      const result = await loansCollection
+        .find({ showOnHome: true })
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .toArray();
       res.send(result);
     });
 
@@ -79,10 +143,10 @@ async function run() {
         $set: updatedData,
       };
       const result = await loansCollection.updateOne(query, updateDoc);
-       res.send(result);      
+      res.send(result);
     });
 
-  // delete loan
+    // delete loan
     app.delete("/loans/:id", async (req, res) => {
       const id = req.params.id;
       const result = await loansCollection.deleteOne({ _id: new ObjectId(id) });
@@ -96,9 +160,7 @@ async function run() {
       res.send({ result, success: true });
     });
 
-
-
-// get pending loan applications
+    // get pending loan applications
     app.get("/pending-loans", async (req, res) => {
       const result = await applicationsCollection
         .find({ status: "Pending" })
@@ -106,7 +168,7 @@ async function run() {
       res.send(result);
     });
 
-// get approved loan applications
+    // get approved loan applications
     app.get("/approved-loans", async (req, res) => {
       const result = await applicationsCollection
         .find({ status: "Approved" })
@@ -114,8 +176,7 @@ async function run() {
       res.send(result);
     });
 
-
-// Update Status of loan application by manager
+    // Update Status of loan application by manager
     app.patch("/update-status/:id", async (req, res) => {
       const id = req.params.id;
       const { status } = req.body;
@@ -127,10 +188,10 @@ async function run() {
         { _id: new ObjectId(id) },
         { $set: updateData }
       );
-       res.send(result);
+      res.send(result);
     });
 
-      //loan applications get from DB by user
+    //loan applications get from DB by user
     app.get("/my-loans/:email", async (req, res) => {
       const result = await applicationsCollection
         .find({ userEmail: req.params.email })
@@ -138,8 +199,7 @@ async function run() {
       res.send(result);
     });
 
-
-      //loan application delete from DB by user
+    //loan application delete from DB by user
     app.delete("/loan-application/:id", async (req, res) => {
       const id = req.params.id;
       const result = await applicationsCollection.deleteOne({
@@ -147,7 +207,6 @@ async function run() {
       });
       res.send(result);
     });
-
 
     // save or update a user in db
     app.post("/user", async (req, res) => {
@@ -189,11 +248,6 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
-
-
-
-
-
 
     // payment checkout
     app.post("/create-checkout-session", async (req, res) => {
@@ -274,13 +328,6 @@ async function run() {
         });
       }
     });
-
-
-
-
-
-
-
   } finally {
   }
 }
