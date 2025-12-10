@@ -249,7 +249,15 @@ async function run() {
       res.send(result);
     });
 
-
+       // Update users role by ADMIN
+    app.patch("/users", verifyJWT, verifyADMIN, async (req, res) => {
+      const { email, role } = req.body;
+      const result = await usersCollection.updateOne(
+        { email },
+        { $set: { role } }
+      );
+      res.send(result);
+    });
 
       // Suspend User by ADMIN
     app.patch("/users/suspend/:id", async (req, res) => {
