@@ -1,7 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const cookieParser = require('cookie-parser');
+const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const stripe = require("stripe")(process.env.STRIPE_SECRET);
 const admin = require("firebase-admin");
@@ -10,9 +10,7 @@ const decoded = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString(
   "utf-8"
 );
 const serviceAccount = JSON.parse(decoded);
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -28,7 +26,6 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
-
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.vbonu5x.mongodb.net/?appName=Cluster0`;
 const client = new MongoClient(uri, {
   serverApi: {
@@ -38,87 +35,83 @@ const client = new MongoClient(uri, {
   },
 });
 
-
 // jwt middlewares
 const verifyJWT = async (req, res, next) => {
   try {
     const cookieToken = req.cookies?.rin_session;
-    const headerToken = req.headers?.authorization?.split(' ')[1];
+    const headerToken = req.headers?.authorization?.split(" ")[1];
 
     if (!cookieToken && !headerToken) {
-      return res.status(401).json({ message: 'Unauthorized Access!' });
+      return res.status(401).json({ message: "Unauthorized Access!" });
     }
 
     const decoded = cookieToken
       ? await admin.auth().verifySessionCookie(cookieToken, true)
       : await admin.auth().verifyIdToken(headerToken);
-
     req.tokenEmail = decoded.email;
     next();
   } catch (err) {
-    console.error('verifyJWT error', err?.message);
-    return res.status(401).json({ message: 'Unauthorized Access!' });
+    console.error("verifyJWT error", err?.message);
+    return res.status(401).json({ message: "Unauthorized Access!" });
   }
 };
 
-
-    // Role guards 
+// Role guards
 const makeRoleGuard = (role) => async (req, res, next) => {
   try {
     const email = req.tokenEmail;
     const user = await req.app.locals.usersCollection.findOne({ email });
     if (user?.role !== role) {
-      return res.status(403).json({ message: `${role} only actions!`, role: user?.role });
+      return res
+        .status(403)
+        .json({ message: `${role} only actions!`, role: user?.role });
     }
     next();
   } catch (e) {
-    console.error('role guard error', e);
-    res.status(500).json({ message: 'Server error' });
+    console.error("role guard error", e);
+    res.status(500).json({ message: "Server error" });
   }
 };
-const verifyADMIN = makeRoleGuard('admin');
-const verifyManager = makeRoleGuard('manager');
-const verifyBorrower = makeRoleGuard('borrower');
 
+const verifyADMIN = makeRoleGuard("admin");
+const verifyManager = makeRoleGuard("manager");
+const verifyBorrower = makeRoleGuard("borrower");
 
-//Login/Logout (httpOnly session cookie) 
-app.post('/auth/login', async (req, res) => {
+//Login Logout (httpOnly session cookie)
+app.post("/auth/login", async (req, res) => {
   try {
     const { idToken } = req.body;
-    if (!idToken) return res.status(400).json({ message: 'Missing idToken' });
-
+    if (!idToken) return res.status(400).json({ message: "Missing idToken" });
     const expiresIn = 7 * 24 * 60 * 60 * 1000; // 7 days
-    const sessionCookie = await admin.auth().createSessionCookie(idToken, { expiresIn });
-
-    const isProd = process.env.NODE_ENV === 'production';
-    res.cookie('rin_session', sessionCookie, {
+    const sessionCookie = await admin
+      .auth()
+      .createSessionCookie(idToken, { expiresIn });
+    const isProd = process.env.NODE_ENV === "production";
+    res.cookie("rin_session", sessionCookie, {
       httpOnly: true,
-      secure: isProd,                         // prod এ true (https)
-      sameSite: isProd ? 'None' : 'Lax',      // cross-site হলে None + secure
+      secure: isProd,
+      sameSite: isProd ? "None" : "Lax",
       maxAge: expiresIn,
-      path: '/'
+      path: "/",
     });
 
     return res.json({ success: true });
   } catch (error) {
-    console.error('login error', error?.message);
-    return res.status(401).json({ message: 'Invalid token' });
+    console.error("login error", error?.message);
+    return res.status(401).json({ message: "Invalid token" });
   }
 });
 
 // Logout: clear session cookie
-app.post('/auth/logout', (req, res) => {
-  const isProd = process.env.NODE_ENV === 'production';
-  res.clearCookie('rin_session', {
-    path: '/',
-    sameSite: isProd ? 'None' : 'Lax',
-    secure: isProd
+app.post("/auth/logout", (req, res) => {
+  const isProd = process.env.NODE_ENV === "production";
+  res.clearCookie("rin_session", {
+    path: "/",
+    sameSite: isProd ? "None" : "Lax",
+    secure: isProd,
   });
   return res.json({ success: true });
 });
-
-
-
 
 async function run() {
   try {
@@ -139,7 +132,10 @@ async function run() {
     //  add loan by manager
     app.post("/loans", verifyJWT, verifyManager, async (req, res) => {
       const loan = req.body;
-   const result = await loansCollection.insertOne({...loan, createdAt: loan?.createdAt || new Date()});
+      const result = await loansCollection.insertOne({
+        ...loan,
+        createdAt: loan?.createdAt || new Date(),
+      });
       res.send(result);
     });
 
@@ -173,9 +169,7 @@ async function run() {
       const id = req.params.id;
       const updatedData = req.body;
       const query = { _id: new ObjectId(id) };
-      const updateDoc = {
-        $set: updatedData,
-      };
+      const updateDoc = { $set: updatedData };
       const result = await loansCollection.updateOne(query, updateDoc);
       res.send(result);
     });
@@ -188,11 +182,19 @@ async function run() {
     });
 
     //loan applications save in DB
-    app.post("/loans/application", verifyJWT, verifyBorrower, async (req, res) => {
-      const data = req.body;
-    const result = await applicationsCollection.insertOne({...data, createdAt: data?.createdAt || new Date()});
-      res.send({ result, success: true });
-    });
+    app.post(
+      "/loans/application",
+      verifyJWT,
+      verifyBorrower,
+      async (req, res) => {
+        const data = req.body;
+        const result = await applicationsCollection.insertOne({
+          ...data,
+          createdAt: data?.createdAt || new Date(),
+        });
+        res.send({ result, success: true });
+      }
+    );
 
     // get pending loan applications
     app.get("/pending-loans", verifyJWT, verifyManager, async (req, res) => {
@@ -211,24 +213,29 @@ async function run() {
     });
 
     // Update Status of loan application by manager
-    app.patch("/update-status/:id", verifyJWT, verifyManager, async (req, res) => {
-      const id = req.params.id;
-      const { status } = req.body;
-      const updateData = { status };
-      if (status === "Approved") {
-        updateData.approvedAt = new Date();
+    app.patch(
+      "/update-status/:id",
+      verifyJWT,
+      verifyManager,
+      async (req, res) => {
+        const id = req.params.id;
+        const { status } = req.body;
+        const updateData = { status };
+        if (status === "Approved") {
+          updateData.approvedAt = new Date();
+        }
+        const result = await applicationsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updateData }
+        );
+        res.send(result);
       }
-      const result = await applicationsCollection.updateOne(
-        { _id: new ObjectId(id) },
-        { $set: updateData }
-      );
-      res.send(result);
-    });
+    );
 
-    //loan applications get from DB by user
+    // loan applications get from DB by user
     app.get("/my-loans/:email", verifyJWT, verifyBorrower, async (req, res) => {
-       if (req.params.email !== req.tokenEmail) {
-        return res.status(403).json({ message: 'Forbidden' });
+      if (req.params.email !== req.tokenEmail) {
+        return res.status(403).json({ message: "Forbidden" });
       }
       const result = await applicationsCollection
         .find({ userEmail: req.params.email })
@@ -236,14 +243,19 @@ async function run() {
       res.send(result);
     });
 
-    //loan application delete from DB by user
-    app.delete("/loan-application/:id", verifyJWT, verifyBorrower, async (req, res) => {
-      const id = req.params.id;
-      const result = await applicationsCollection.deleteOne({
-        _id: new ObjectId(id),
-      });
-      res.send(result);
-    });
+    // loan application delete from DB by user
+    app.delete(
+      "/loan-application/:id",
+      verifyJWT,
+      verifyBorrower,
+      async (req, res) => {
+        const id = req.params.id;
+        const result = await applicationsCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      }
+    );
 
     // save or update a user in db
     app.post("/user", async (req, res) => {
@@ -252,9 +264,7 @@ async function run() {
       userData.last_loggedIn = new Date().toISOString();
       userData.role = userData.role || "borrower";
       userData.status = "active";
-      const query = {
-        email: userData.email,
-      };
+      const query = { email: userData.email };
 
       const alreadyExists = await usersCollection.findOne(query);
       console.log("User Already Exists---> ", !!alreadyExists);
@@ -268,35 +278,26 @@ async function run() {
         });
         return res.send(result);
       }
-
       console.log("Saving new user info......");
       const result = await usersCollection.insertOne(userData);
       res.send(result);
     });
 
-   // get user role
+    // get user role
     app.get("/user/role", verifyJWT, async (req, res) => {
       const result = await usersCollection.findOne({ email: req.tokenEmail });
-      console.log(result)
+      console.log(result);
       res.send({ role: result?.role });
     });
 
-    // app.get("/users", async (req, res) => {
-    //   const cursor = usersCollection.find();
-    //   const result = await cursor.toArray();
-    //   res.send(result);
-    // });
-
-// get all user for admin manage
+    // get all user for admin manage
     app.get("/users", verifyJWT, verifyADMIN, async (req, res) => {
       try {
         const adminEmail = req.tokenEmail;
-        // Pagination parameters
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 5;
         const search = req.query.search || "";
         const role = req.query.role || "";
-        // Build filter query
         const query = { email: { $ne: adminEmail } };
         if (role) query.role = role;
         if (search) {
@@ -305,10 +306,8 @@ async function run() {
             { email: { $regex: search, $options: "i" } },
           ];
         }
-        // Count total users matching query
         const totalUsers = await usersCollection.countDocuments(query);
         const totalPages = Math.ceil(totalUsers / limit);
-        // Fetch users for current page
         const users = await usersCollection
           .find(query)
           .skip((page - 1) * limit)
@@ -321,9 +320,6 @@ async function run() {
       }
     });
 
-
-
-
     // get user profile
     app.get("/users/:email", async (req, res) => {
       const email = req.params.email;
@@ -331,8 +327,7 @@ async function run() {
       res.send(result);
     });
 
-
-       // Update users role by ADMIN
+    // Update users role by ADMIN
     app.patch("/users", verifyJWT, verifyADMIN, async (req, res) => {
       const { email, role } = req.body;
       const result = await usersCollection.updateOne(
@@ -342,37 +337,34 @@ async function run() {
       res.send(result);
     });
 
-      // Suspend User by ADMIN
-    app.patch("/users/suspend/:id", verifyJWT, verifyADMIN, async (req, res) => {
-      const id = req.params.id;
-      const { reason, feedback } = req.body;
-      const result = await usersCollection.updateOne(
-        { _id: new ObjectId(id) },
-        {
-          $set: {
-            status: "suspended",
-            suspendReason: reason,
-            suspendFeedback: feedback,
-            suspendedAt: new Date(),
-          },
-        }
-      );
-      res.send({
-        success: true,
-        result,
-      });
-    });
-
-
-
+    // Suspend User by ADMIN
+    app.patch(
+      "/users/suspend/:id",
+      verifyJWT,
+      verifyADMIN,
+      async (req, res) => {
+        const id = req.params.id;
+        const { reason, feedback } = req.body;
+        const result = await usersCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: {
+              status: "suspended",
+              suspendReason: reason,
+              suspendFeedback: feedback,
+              suspendedAt: new Date(),
+            },
+          }
+        );
+        res.send({ success: true, result });
+      }
+    );
 
     // gTEMPORARY
     app.get("/loan-applications/statistic", async (req, res) => {
       const result = await applicationsCollection.find({}).toArray();
       res.send(result);
-    })
-
-
+    });
 
     // payment checkout
     app.post("/create-checkout-session", async (req, res) => {
@@ -407,9 +399,7 @@ async function run() {
     app.get("/payment-success", async (req, res) => {
       const { session_id } = req.query;
       try {
-        // Retrieve the session from Stripe
         const session = await stripe.checkout.sessions.retrieve(session_id);
-        // Check if payment succeeded
         if (session.payment_status === "paid") {
           const loanApplicationId = session.metadata.loanApplicationId;
           if (!loanApplicationId) {
@@ -432,7 +422,6 @@ async function run() {
               },
             }
           );
-
           return res.status(200).json({
             success: true,
             message: "Payment successful",
