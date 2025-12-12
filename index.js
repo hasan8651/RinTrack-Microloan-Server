@@ -115,8 +115,8 @@ app.post("/auth/logout", (req, res) => {
 
 async function run() {
   try {
-    await client.connect();
-    await client.db("admin").command({ ping: 1 });
+    // await client.connect();
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
@@ -151,13 +151,13 @@ async function run() {
 
     // get all loans
     app.get("/loans", async (req, res) => {
-      const result = await loansCollection.find({}).toArray();
+      const result = await loansCollection.find().toArray();
       res.send(result);
     });
 
     // get loan details
     app.get("/loans/:id", async (req, res) => {
-      console.log(req.params.id);
+      // console.log('get loan details:', req.params.id);
       const result = await loansCollection.findOne({
         _id: new ObjectId(req.params.id),
       });
@@ -267,10 +267,10 @@ async function run() {
       const query = { email: userData.email };
 
       const alreadyExists = await usersCollection.findOne(query);
-      console.log("User Already Exists---> ", !!alreadyExists);
+      // console.log("User Already Exists---> ", !!alreadyExists);
 
       if (alreadyExists) {
-        console.log("Updating user info......");
+        // console.log("Updating user info......");
         const result = await usersCollection.updateOne(query, {
           $set: {
             last_loggedIn: new Date().toISOString(),
@@ -278,7 +278,7 @@ async function run() {
         });
         return res.send(result);
       }
-      console.log("Saving new user info......");
+      // console.log("Saving new user info......");
       const result = await usersCollection.insertOne(userData);
       res.send(result);
     });
@@ -286,7 +286,7 @@ async function run() {
     // get user role
     app.get("/user/role", verifyJWT, async (req, res) => {
       const result = await usersCollection.findOne({ email: req.tokenEmail });
-      console.log(result);
+      // console.log('get user role:', result);
       res.send({ role: result?.role });
     });
 
