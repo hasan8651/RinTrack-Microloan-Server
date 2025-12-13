@@ -337,6 +337,20 @@ async function run() {
       res.send(result);
     });
 
+    // Update users profile
+    app.patch("/users/:email", verifyJWT, async (req, res) => {
+      const emailParam = req.params.email;
+      const { name, image } = req.body;
+      if (req.tokenEmail !== emailParam) {
+        return res.status(403).json({ message: "Forbidden access" });
+      }
+      const result = await usersCollection.updateOne(
+        { email: emailParam },
+        { $set: { name, image } }
+      );
+      res.send(result);
+    });
+
     // Suspend User by ADMIN
     app.patch(
       "/users/suspend/:id",
@@ -360,8 +374,8 @@ async function run() {
       }
     );
 
-    // gTEMPORARY
-    app.get("/loan-applications/statistic", async (req, res) => {
+    // get all loan applications
+    app.get("/loan-applications", async (req, res) => {
       const result = await applicationsCollection.find({}).toArray();
       res.send(result);
     });
