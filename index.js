@@ -57,15 +57,17 @@ const verifyJWT = async (req, res, next) => {
 };
 
 // Role guards
-const makeRoleGuard = (role) => async (req, res, next) => {
+const makeRoleGuard = (...roles) => async (req, res, next) => {
   try {
     const email = req.tokenEmail;
     const user = await req.app.locals.usersCollection.findOne({ email });
-    if (user?.role !== role) {
+
+    if (!roles.includes(user?.role)) {
       return res
         .status(403)
-        .json({ message: `${role} only actions!`, role: user?.role });
+        .json({ message: `${roles.join(" or ")} only actions!`, role: user?.role });
     }
+
     next();
   } catch (e) {
     console.error("role guard error", e);
@@ -76,6 +78,7 @@ const makeRoleGuard = (role) => async (req, res, next) => {
 const verifyADMIN = makeRoleGuard("admin");
 const verifyManager = makeRoleGuard("manager");
 const verifyBorrower = makeRoleGuard("borrower");
+const verifyAdminOrManager = makeRoleGuard("admin", "manager");
 
 //Login Logout (httpOnly session cookie)
 app.post("/auth/login", async (req, res) => {
@@ -165,7 +168,7 @@ async function run() {
     });
 
     // update loan data
-    app.patch("/loans/:id", verifyJWT, verifyManager, async (req, res) => {
+    app.patch("/loans/:id", verifyJWT, verifyAdminOrManager, async (req, res) => {
       const id = req.params.id;
       const updatedData = req.body;
       const query = { _id: new ObjectId(id) };
