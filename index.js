@@ -61,13 +61,11 @@ const makeRoleGuard = (...roles) => async (req, res, next) => {
   try {
     const email = req.tokenEmail;
     const user = await req.app.locals.usersCollection.findOne({ email });
-
     if (!roles.includes(user?.role)) {
       return res
         .status(403)
         .json({ message: `${roles.join(" or ")} only actions!`, role: user?.role });
     }
-
     next();
   } catch (e) {
     console.error("role guard error", e);
@@ -160,8 +158,7 @@ async function run() {
 
     // get loan details
     app.get("/loans/:id", async (req, res) => {
-      // console.log('get loan details:', req.params.id);
-      const result = await loansCollection.findOne({
+    const result = await loansCollection.findOne({
         _id: new ObjectId(req.params.id),
       });
       res.send(result);
@@ -270,27 +267,22 @@ async function run() {
       const query = { email: userData.email };
 
       const alreadyExists = await usersCollection.findOne(query);
-      // console.log("User Already Exists---> ", !!alreadyExists);
-
       if (alreadyExists) {
-        // console.log("Updating user info......");
-        const result = await usersCollection.updateOne(query, {
+      const result = await usersCollection.updateOne(query, {
           $set: {
             last_loggedIn: new Date().toISOString(),
           },
         });
         return res.send(result);
       }
-      // console.log("Saving new user info......");
-      const result = await usersCollection.insertOne(userData);
+    const result = await usersCollection.insertOne(userData);
       res.send(result);
     });
 
     // get user role
     app.get("/user/role", verifyJWT, async (req, res) => {
       const result = await usersCollection.findOne({ email: req.tokenEmail });
-      // console.log('get user role:', result);
-      res.send({ role: result?.role });
+    res.send({ role: result?.role });
     });
 
     // get all user for admin manage
