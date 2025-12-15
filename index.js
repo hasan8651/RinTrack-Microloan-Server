@@ -57,21 +57,26 @@ const verifyJWT = async (req, res, next) => {
 };
 
 // Role guards
-const makeRoleGuard = (...roles) => async (req, res, next) => {
-  try {
-    const email = req.tokenEmail;
-    const user = await req.app.locals.usersCollection.findOne({ email });
-    if (!roles.includes(user?.role)) {
-      return res
-        .status(403)
-        .json({ message: `${roles.join(" or ")} only actions!`, role: user?.role });
+const makeRoleGuard =
+  (...roles) =>
+  async (req, res, next) => {
+    try {
+      const email = req.tokenEmail;
+      const user = await req.app.locals.usersCollection.findOne({ email });
+      if (!roles.includes(user?.role)) {
+        return res
+          .status(403)
+          .json({
+            message: `${roles.join(" or ")} only actions!`,
+            role: user?.role,
+          });
+      }
+      next();
+    } catch (err) {
+      console.error("role guard error", err);
+      res.status(500).json({ message: "Server error" });
     }
-    next();
-  } catch (e) {
-    console.error("role guard error", e);
-    res.status(500).json({ message: "Server error" });
-  }
-};
+  };
 
 const verifyADMIN = makeRoleGuard("admin");
 const verifyManager = makeRoleGuard("manager");
@@ -158,28 +163,40 @@ async function run() {
 
     // get loan details
     app.get("/loans/:id", async (req, res) => {
-    const result = await loansCollection.findOne({
+      const result = await loansCollection.findOne({
         _id: new ObjectId(req.params.id),
       });
       res.send(result);
     });
 
     // update loan data
-    app.patch("/loans/:id", verifyJWT, verifyAdminOrManager, async (req, res) => {
-      const id = req.params.id;
-      const updatedData = req.body;
-      const query = { _id: new ObjectId(id) };
-      const updateDoc = { $set: updatedData };
-      const result = await loansCollection.updateOne(query, updateDoc);
-      res.send(result);
-    });
+    app.patch(
+      "/loans/:id",
+      verifyJWT,
+      verifyAdminOrManager,
+      async (req, res) => {
+        const id = req.params.id;
+        const updatedData = req.body;
+        const query = { _id: new ObjectId(id) };
+        const updateDoc = { $set: updatedData };
+        const result = await loansCollection.updateOne(query, updateDoc);
+        res.send(result);
+      }
+    );
 
     // delete loan
-    app.delete("/loans/:id", verifyJWT, verifyAdminOrManager, async (req, res) => {
-      const id = req.params.id;
-      const result = await loansCollection.deleteOne({ _id: new ObjectId(id) });
-      res.send(result);
-    });
+    app.delete(
+      "/loans/:id",
+      verifyJWT,
+      verifyAdminOrManager,
+      async (req, res) => {
+        const id = req.params.id;
+        const result = await loansCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      }
+    );
 
     //loan applications save in DB
     app.post(
@@ -268,21 +285,19 @@ async function run() {
 
       const alreadyExists = await usersCollection.findOne(query);
       if (alreadyExists) {
-      const result = await usersCollection.updateOne(query, {
-          $set: {
-            last_loggedIn: new Date().toISOString(),
-          },
+        const result = await usersCollection.updateOne(query, {
+          $set: { last_loggedIn: new Date().toISOString() },
         });
         return res.send(result);
       }
-    const result = await usersCollection.insertOne(userData);
+      const result = await usersCollection.insertOne(userData);
       res.send(result);
     });
 
     // get user role
     app.get("/user/role", verifyJWT, async (req, res) => {
       const result = await usersCollection.findOne({ email: req.tokenEmail });
-    res.send({ role: result?.role });
+      res.send({ role: result?.role });
     });
 
     // get all user for admin manage
@@ -301,6 +316,7 @@ async function run() {
             { email: { $regex: search, $options: "i" } },
           ];
         }
+
         const totalUsers = await usersCollection.countDocuments(query);
         const totalPages = Math.ceil(totalUsers / limit);
         const users = await usersCollection
