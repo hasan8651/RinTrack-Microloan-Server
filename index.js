@@ -155,11 +155,77 @@ async function run() {
       res.send(result);
     });
 
-    // get all loans
-    app.get("/loans", async (req, res) => {
-      const result = await loansCollection.find().toArray();
-      res.send(result);
+// get all loans with Search, Filtering, Sorting and Pagination
+app.get("/loans", async (req, res) => {
+  try {
+    const search = req.query.search || "";
+    const category = req.query.category || "";
+    const sort = req.query.sort || "desc";
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 8;
+
+     const query = {
+      title: { $regex: search, $options: "i" },
+    };
+
+    if (category) {
+      query.category = category;
+    }
+
+    let sortOptions = { createdAt: -1 };
+    if (sort === "asc") sortOptions = { createdAt: 1 };
+    if (sort === "price-high") sortOptions = { maxLoanLimit: -1 };
+    if (sort === "price-low") sortOptions = { maxLoanLimit: 1 };
+
+    const skip = (page - 1) * limit;
+    
+    const totalCount = await loansCollection.countDocuments(query);
+    const loans = await loansCollection
+      .find(query)
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limit)
+      .toArray();
+
+    res.send({
+      loans,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: page,
     });
+  } catch (error) {
+    console.error("Error fetching loans:", error);
+    res.status(500).send({ message: "Internal Server Error" });
+  }
+});
+
+
+// loan categories for filter menu
+app.get('/loan-categories', async (req, res) => {
+  try {
+    const categories = await loansCollection.aggregate([
+      {
+        $group: {
+          _id: "$category"
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          category: "$_id"
+        }
+      }
+    ]).toArray();
+
+    const categoryList = categories.map(item => item.category).filter(Boolean);
+    
+    res.send(categoryList);
+  } catch (error) {
+    console.error("Aggregation Error:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
 
     // get loan details
     app.get("/loans/:id", async (req, res) => {
